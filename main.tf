@@ -131,18 +131,17 @@ resource "aws_key_pair" "deployer" {
 }
 
 ###################
-# EC2 Instances
+# EC2 Instances - Apache Servers
 ###################
 
-resource "aws_instance" "web" {
-  count                  = var.instance_count
+resource "aws_instance" "apache" {
+  count                  = var.apache_instance_count
   ami                    = var.ami_id
   instance_type          = var.instance_type
   key_name               = aws_key_pair.deployer.key_name
   vpc_security_group_ids = [aws_security_group.web.id]
   subnet_id              = aws_subnet.public.id
 
-  # User data script to prepare the instance
   user_data = <<-EOF
               #!/bin/bash
               set -e
@@ -151,31 +150,116 @@ resource "aws_instance" "web" {
               apt-get update
               apt-get upgrade -y
               
-              # Install nginx
+              # Install Apache
+              apt-get install -y apache2
+              
+              # Install Python for Ansible
+              apt-get install -y python3 python3-pip
+              
+              # Enable and start Apache
+              systemctl enable apache2
+              systemctl start apache2
+              
+              # Create a placeholder page
+              cat > /var/www/html/index.html <<HTML
+              <!DOCTYPE html>
+              <html>
+              <head>
+                  <title>Apache Server ${count.index + 1}</title>
+                  <style>
+                      body { font-family: Arial; text-align: center; padding: 50px; background: #f0f0f0; }
+                      h1 { color: #d62828; }
+                  </style>
+              </head>
+              <body>
+                  <h1>🔴 Apache Server ${count.index + 1}</h1>
+                  <p>Ready for deployment via Ansible</p>
+                  <p>Powered by Apache HTTP Server</p>
+              </body>
+              </html>
+HTML
+              
+              # Log completion
+              echo "Apache setup completed at $(date)" >> /var/log/user-data.log
+              EOF
+
+  tags = {
+    Name        = "apache-server-${count.index + 1}"
+    Role        = "webserver"
+    ServerType  = "apache"
+    Environment = "production"
+    ManagedBy   = "Terraform"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+###################
+# EC2 Instances - Nginx Servers
+###################
+
+resource "aws_instance" "nginx" {
+  count                  = var.nginx_instance_count
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.deployer.key_name
+  vpc_security_group_ids = [aws_security_group.web.id]
+  subnet_id              = aws_subnet.public.id
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -e
+              
+              # Update system
+              apt-get update
+              apt-get upgrade -y
+              
+              # Install Nginx
               apt-get install -y nginx
               
               # Install Python for Ansible
               apt-get install -y python3 python3-pip
               
-              # Start and enable nginx
-              systemctl start nginx
+              # Enable and start Nginx
               systemctl enable nginx
+              systemctl start nginx
               
               # Create a placeholder page
-              echo "<h1>Server ${count.index + 1} - Ready for deployment</h1>" > /var/www/html/index.html
+              cat > /var/www/html/index.html <<HTML
+              <!DOCTYPE html>
+              <html>
+              <head>
+                  <title>Nginx Server ${count.index + 1}</title>
+                  <style>
+                      body { font-family: Arial; text-align: center; padding: 50px; background: #f0f0f0; }
+                      h1 { color: #009688; }
+                  </style>
+              </head>
+              <body>
+                  <h1>🔵 Nginx Server ${count.index + 1}</h1>
+                  <p>Ready for deployment via Ansible</p>
+                  <p>Powered by Nginx Web Server</p>
+              </body>
+              </html>
+HTML
+              
+              # Remove default nginx page
+              rm -f /var/www/html/index.nginx-debian.html
               
               # Log completion
-              echo "Setup completed at $(date)" >> /var/log/user-data.log
+              echo "Nginx setup completed at $(date)" >> /var/log/user-data.log
               EOF
 
   tags = {
-    Name        = "webserver-${count.index + 1}"
+    Name        = "nginx-server-${count.index + 1}"
     Role        = "webserver"
+    ServerType  = "nginx"
     Environment = "production"
     ManagedBy   = "Terraform"
   }
 
-  # Ensure instance is fully initialized
   lifecycle {
     create_before_destroy = true
   }
@@ -187,12 +271,12 @@ resource "aws_instance" "web" {
 
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/templates/inventory.tftpl", {
-    webservers = aws_instance.web[*].public_ip
+    apache_servers = aws_instance.apache[*].public_ip
+    nginx_servers  = aws_instance.nginx[*].public_ip
   })
   filename = "${path.module}/../ansible-playbooks/inventory/hosts.ini"
 
-  # Only create after instances are ready
-  depends_on = [aws_instance.web]
+  depends_on = [aws_instance.apache, aws_instance.nginx]
 }
 
 ###################
@@ -209,14 +293,26 @@ resource "local_file" "deployment_summary" {
   VPC ID: ${aws_vpc.main.id}
   Subnet ID: ${aws_subnet.public.id}
   
-  Web Servers (${var.instance_count}):
-  ${join("\n  ", formatlist("- %s (Instance: %s)", aws_instance.web[*].public_ip, aws_instance.web[*].id))}
+  APACHE SERVERS (${var.apache_instance_count}):
+  ${join("\n  ", formatlist("- %s (Instance: %s) - Apache", aws_instance.apache[*].public_ip, aws_instance.apache[*].id))}
   
-  Access URLs:
-  ${join("\n  ", formatlist("- http://%s", aws_instance.web[*].public_ip))}
+  NGINX SERVERS (${var.nginx_instance_count}):
+  ${join("\n  ", formatlist("- %s (Instance: %s) - Nginx", aws_instance.nginx[*].public_ip, aws_instance.nginx[*].id))}
   
-  SSH Access:
-  ${join("\n  ", formatlist("ssh -i ~/.ssh/webserver-key ubuntu@%s", aws_instance.web[*].public_ip))}
+  APACHE URLs:
+  ${join("\n  ", formatlist("- http://%s", aws_instance.apache[*].public_ip))}
+  
+  NGINX URLs:
+  ${join("\n  ", formatlist("- http://%s", aws_instance.nginx[*].public_ip))}
+  
+  SSH ACCESS:
+  Apache Servers:
+  ${join("\n  ", formatlist("ssh -i ~/.ssh/webserver-key ubuntu@%s", aws_instance.apache[*].public_ip))}
+  
+  Nginx Servers:
+  ${join("\n  ", formatlist("ssh -i ~/.ssh/webserver-key ubuntu@%s", aws_instance.nginx[*].public_ip))}
+  
+  TOTAL SERVERS: ${var.apache_instance_count + var.nginx_instance_count}
   ========================================
   EOF
   
