@@ -1,5 +1,4 @@
 # outputs.tf
-
 output "vpc_id" {
   description = "ID of the VPC"
   value       = aws_vpc.main.id
@@ -99,6 +98,16 @@ output "deployment_time" {
 output "ansible_inventory_path" {
   description = "Path to generated Ansible inventory file"
   value       = local_file.ansible_inventory.filename
+}
+
+###################
+# NEW - Inventory Content Output for Jenkins
+###################
+
+output "ansible_inventory_content" {
+  description = "Ansible inventory content for Jenkins to copy"
+  value       = local_file.ansible_inventory.content
+  sensitive   = false
 }
 
 output "server_summary" {
