@@ -100,16 +100,6 @@ output "ansible_inventory_path" {
   value       = local_file.ansible_inventory.filename
 }
 
-###################
-# NEW - Inventory Content Output for Jenkins
-###################
-
-output "ansible_inventory_content" {
-  description = "Ansible inventory content for Jenkins to copy"
-  value       = local_file.ansible_inventory.content
-  sensitive   = false
-}
-
 output "server_summary" {
   description = "Summary of all servers"
   value = {
@@ -117,4 +107,14 @@ output "server_summary" {
     total_nginx_servers  = var.nginx_instance_count
     total_servers        = var.apache_instance_count + var.nginx_instance_count
   }
+}
+
+###################
+# Inventory Content Output for Jenkins
+###################
+
+output "ansible_inventory_content" {
+  description = "Ansible inventory content for Jenkins to copy"
+  value       = local_file.ansible_inventory.content
+  sensitive   = false
 }
