@@ -1,13 +1,14 @@
 
 [apache_servers]
-%{ for ip in apache_servers ~}
+%{ for ip in apache_ips ~}
 ${ip}
 %{ endfor ~}
 
 [nginx_servers]
-%{ for ip in nginx_servers ~}
+%{ for ip in nginx_ips ~}
 ${ip}
 %{ endfor ~}
+
 
 
 [apache_servers:vars]
