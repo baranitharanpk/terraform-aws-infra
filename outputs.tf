@@ -15,6 +15,8 @@ output "security_group_id" {
   value       = aws_security_group.web.id
 }
 
+# ---------------- APACHE ----------------
+
 output "apache_instance_ids" {
   description = "List of Apache EC2 instance IDs"
   value       = aws_instance.apache[*].id
@@ -35,6 +37,8 @@ output "apache_urls" {
   value       = formatlist("http://%s", aws_instance.apache[*].public_ip)
 }
 
+# ---------------- NGINX ----------------
+
 output "nginx_instance_ids" {
   description = "List of Nginx EC2 instance IDs"
   value       = aws_instance.nginx[*].id
@@ -54,6 +58,8 @@ output "nginx_urls" {
   description = "URLs to access Nginx servers"
   value       = formatlist("http://%s", aws_instance.nginx[*].public_ip)
 }
+
+# ---------------- COMBINED ----------------
 
 output "all_server_ips" {
   description = "All server IP addresses"
@@ -80,8 +86,9 @@ output "server_summary" {
   }
 }
 
-# NEW OUTPUT - Required for Jenkins pipeline
+# -------- REQUIRED FOR JENKINS / DEBUG --------
+
 output "ansible_inventory_content" {
-  description = "Ansible inventory file content"
+  description = "Rendered Ansible inventory file content"
   value       = local_file.ansible_inventory.content
 }
