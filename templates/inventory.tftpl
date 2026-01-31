@@ -16,13 +16,13 @@ nginx_servers
 ansible_user=ubuntu
 ansible_python_interpreter=/usr/bin/python3
 ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/webserver-key
-ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_ssh_common_args=-o StrictHostKeyChecking=no
 
 [nginx_servers:vars]
 ansible_user=ubuntu
 ansible_python_interpreter=/usr/bin/python3
 ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/webserver-key
-ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_ssh_common_args=-o StrictHostKeyChecking=no
 
 [all:vars]
 ansible_connection=ssh
